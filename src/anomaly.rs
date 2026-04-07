@@ -192,7 +192,10 @@ fn detect_error_pattern(pattern: &PatternStats) -> Option<Anomaly> {
     // Only scan the first 100 chars — log levels appear in the first ~50-80 chars.
     // Scanning further causes false positives when structured data (JSON, Ruby
     // hashes) contains field names like "error" or "error_type".
-    let prefix_end = pattern.template.len().min(100);
+    let mut prefix_end = pattern.template.len().min(100);
+    while !pattern.template.is_char_boundary(prefix_end) {
+        prefix_end -= 1;
+    }
     let prefix_upper = pattern.template[..prefix_end].to_uppercase();
     let error_keywords = ["ERROR", "FATAL", "CRIT", "PANIC"];
 
