@@ -4,23 +4,41 @@ version = "0.1.0"
 edition = "2024"
 description = "Compress raw log lines into structural patterns with statistics, anomalies, and correlations"
 license = "MIT"
+repository = "https://github.com/ctrlb-hq/ctrlb-decompose"
+homepage = "https://github.com/ctrlb-hq/ctrlb-decompose"
+readme = "README.md"
+rust-version = "1.94.0"
+exclude = ["tests/", "benches/"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["cli"]
+cli = ["dep:clap", "dep:colored"]
+wasm = ["dep:wasm-bindgen", "dep:serde-wasm-bindgen", "getrandom/wasm_js"]
 
 [dependencies]
-clap = { version = "4", features = ["derive"] }
+# Always included (WASM-safe)
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sketches-ddsketch = "0.3"
 hyperloglogplus = "0.4"
-colored = "2"
 anyhow = "1"
 lru = "0.14"
 regex = "1"
 once_cell = "1"
 fastrand = "2"
+getrandom = "0.4"
 
-# TODO (Phase 2): Add Drain3 crate as path dependency
-# drain3 = { path = "../<drain3-crate>" }
+# CLI-only (feature-gated)
+clap = { version = "4", features = ["derive"], optional = true }
+colored = { version = "2", optional = true }
+
+# WASM-only (feature-gated)
+wasm-bindgen = { version = "0.2", optional = true }
+serde-wasm-bindgen = { version = "0.6", optional = true }
 
 [dev-dependencies]
 insta = { version = "1", features = ["json"] }
@@ -29,3 +47,25 @@ criterion = { version = "0.5", features = ["html_reports"] }
 [[bench]]
 name = "pipeline"
 harness = false
+
+[package.metadata.deb]
+maintainer = "CtrlB <engineering@ctrlb.ai>"
+copyright = "2026, CtrlB"
+license-file = ["LICENSE", "0"]
+extended-description = "Compresses raw log lines into structural patterns with statistics, anomalies, and correlations."
+section = "utils"
+priority = "optional"
+assets = [
+    ["target/release/ctrlb-decompose", "usr/bin/", "755"],
+]
+
+[package.metadata.generate-rpm]
+assets = [
+    { source = "target/release/ctrlb-decompose", dest = "/usr/bin/ctrlb-decompose", mode = "0755" },
+    { source = "LICENSE", dest = "/usr/share/licenses/ctrlb-decompose/LICENSE", mode = "0644" },
+]
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

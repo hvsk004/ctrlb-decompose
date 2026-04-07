@@ -1,0 +1,11 @@
+// Pipeline benchmarks
+// TODO (Phase 11): Implement criterion benchmarks
+
+use criterion::{criterion_group, criterion_main, Criterion};
+
+fn pipeline_benchmark(_c: &mut Criterion) {
+    // TODO: benchmark CLP tokenize + Drain3 cluster + stats accumulate
+}
+
+criterion_group!(benches, pipeline_benchmark);
+criterion_main!(benches);
