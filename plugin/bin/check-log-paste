@@ -2,18 +2,92 @@
 """
 UserPromptSubmit hook for ctrlb-decompose plugin.
 
-Detects when the user pastes a large volume of log-like content and injects
-a warning into Claude's context, asking it to redirect to a file-based workflow
-rather than processing raw pasted logs inline.
+When the user pastes a large volume of log-like content:
+  1. Extracts the log block (first..last log-matching line, preserving continuations)
+  2. Runs ctrlb-decompose --llm on the log block
+  3. Blocks the original prompt (raw lines never enter Claude's context)
+  4. Injects only the compressed ctrlb-decompose output as additionalContext
 
-Input (stdin): JSON {"prompt": "..."}
-Output (stdout): warning text injected as context feedback for Claude
-Exit 0: always allow the prompt through
+Falls back to a warning-only inject (no block) if ctrlb-decompose is not
+installed or fails, so the hook never breaks the conversation.
+
+Input  (stdin):  JSON {"prompt": "...", ...}
+Output (stdout): JSON with decision/hookSpecificOutput
+Exit code:       always 0
 """
 
-import sys
 import json
+import os
 import re
+import shutil
+import subprocess
+import sys
+import tempfile
+
+# Trigger threshold: minimum log-matching lines to activate the hook
+THRESHOLD = 50
+
+# Set to False to disable blocking (inject-only fallback mode)
+BLOCK_ENABLED = True
+
+LOG_PATTERN = re.compile(
+    r"("
+    r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}"            # ISO 8601 / datetime
+    r"|\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}"         # syslog: Jan  5 12:00:00
+    r"|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}.*\[.*\]"  # Apache: IP [date]
+    r"|\b(ERROR|WARN(?:ING)?|INFO|DEBUG|FATAL|CRITICAL|TRACE|NOTICE)\b"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def block_with_context(reason_msg, context):
+    """Block the prompt and inject context for Claude."""
+    print(json.dumps({
+        "decision": "block",
+        "reason": reason_msg,
+        "hookSpecificOutput": {
+            "hookEventName": "UserPromptSubmit",
+            "additionalContext": context,
+        },
+    }))
+    sys.exit(0)
+
+
+def not_installed_fallback(log_line_count):
+    """ctrlb-decompose is not installed — block and ask Claude to install it first."""
+    block_with_context(
+        reason_msg=(
+            f"Your message contained {log_line_count} log lines but ctrlb-decompose "
+            f"is not installed yet. Let me install it first — then paste your logs again."
+        ),
+        context=(
+            f"[ctrlb-decompose hook] The user pasted ~{log_line_count} log lines but "
+            f"ctrlb-decompose is not installed on this machine.\n\n"
+            f"Install ctrlb-decompose now using the analyze-logs skill installation flow "
+            f"(Step 1), then tell the user: "
+            f"'ctrlb-decompose is now installed — please paste your logs again and I'll "
+            f"analyze them automatically.'"
+        ),
+    )
+
+
+def process_failed_fallback(log_line_count):
+    """ctrlb-decompose ran but produced no output — block and redirect to file."""
+    block_with_context(
+        reason_msg=(
+            f"Your message contained {log_line_count} log lines but ctrlb-decompose "
+            f"could not process the pasted content. Please save the logs to a file and "
+            f"share the path instead."
+        ),
+        context=(
+            f"[ctrlb-decompose hook] The user pasted ~{log_line_count} log lines but "
+            f"ctrlb-decompose failed to produce output (possible format issue or timeout).\n\n"
+            f"Ask the user to save their logs to a file and share the path. "
+            f"Then run: ctrlb-decompose --llm --top 20 /path/to/their.log"
+        ),
+    )
+
 
 def main():
     try:
@@ -28,41 +102,98 @@ def main():
     lines = prompt.splitlines()
     total_lines = len(lines)
 
-    # Heuristic: count lines that look like structured log entries
-    # Matches: ISO timestamps, syslog timestamps, Apache log format,
-    #          lines with log levels (ERROR/WARN/INFO/DEBUG/FATAL etc.)
-    log_pattern = re.compile(
-        r"("
-        r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}"           # ISO 8601 / datetime
-        r"|\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}"        # syslog: Jan  5 12:00:00
-        r"|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}.*\[.*\]" # Apache: IP [date]
-        r"|\b(ERROR|WARN(?:ING)?|INFO|DEBUG|FATAL|CRITICAL|TRACE|NOTICE)\b"
-        r")",
-        re.IGNORECASE,
-    )
+    # Find which lines match the log pattern
+    matches = [bool(LOG_PATTERN.search(line)) for line in lines]
+    log_line_count = sum(matches)
 
-    log_line_count = sum(1 for line in lines if log_pattern.search(line))
-
-    # Trigger if at least 50 lines look like logs
-    THRESHOLD = 50
     if log_line_count < THRESHOLD:
         sys.exit(0)
 
-    # Estimate character volume
-    char_count = len(prompt)
+    # --- Separate log block from user question ---
+    # Log block: everything from the first to last matching line (inclusive).
+    # This preserves continuation lines (stack traces, JSON payloads) that sit
+    # between log-matching lines but don't match the pattern themselves.
+    first_log_idx = next(i for i, m in enumerate(matches) if m)
+    last_log_idx = len(matches) - 1 - next(i for i, m in enumerate(reversed(matches)) if m)
 
-    print(
-        f"[ctrlb-decompose hook] The user's message contains approximately "
-        f"{log_line_count} log lines ({total_lines} total lines, ~{char_count:,} characters). "
-        f"This is a large paste that will consume significant context.\n\n"
-        f"Before proceeding:\n"
-        f"1. Ask the user if they can save the logs to a file and share the path instead — "
-        f"this is always preferred for large volumes.\n"
-        f"2. If they insist on using the pasted content, use the Write tool to save it to "
-        f"/tmp/ctrlb_input.log, then run ctrlb-decompose on that file.\n"
-        f"3. After analysis, do NOT quote or echo any raw log lines in your response. "
-        f"Work only from the ctrlb-decompose output."
+    log_block_lines = lines[first_log_idx:last_log_idx + 1]
+
+    # User's question: non-empty lines before the first log line and after the last
+    question_lines = (
+        [l.strip() for l in lines[:first_log_idx] if l.strip()] +
+        [l.strip() for l in lines[last_log_idx + 1:] if l.strip()]
     )
+    user_question = " ".join(question_lines) if question_lines else None
+
+    # --- Check ctrlb-decompose is available ---
+    if not shutil.which("ctrlb-decompose"):
+        not_installed_fallback(log_line_count)
+
+    # --- Run ctrlb-decompose on the extracted log block ---
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".log", prefix="ctrlb_hook_", delete=False
+        ) as tmp:
+            tmp.write("\n".join(log_block_lines))
+            tmp_path = tmp.name
+
+        result = subprocess.run(
+            ["ctrlb-decompose", "--llm", "--top", "20", tmp_path],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        ctrlb_output = result.stdout.strip()
+    except Exception:
+        ctrlb_output = ""
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+    if not ctrlb_output:
+        process_failed_fallback(log_line_count)
+
+    # --- Build context to inject ---
+    question_note = (
+        f"User's question: {user_question}\n\n" if user_question
+        else ""
+    )
+    additional_context = (
+        f"{question_note}"
+        f"ctrlb-decompose compressed {log_line_count} log lines "
+        f"({len(log_block_lines)} in log block) into patterns:\n\n"
+        f"{ctrlb_output}\n\n"
+        f"Answer the user's question based solely on this output. "
+        f"Do not reference or quote any raw log lines."
+    )
+
+    if BLOCK_ENABLED:
+        question_ack = f'Your question ("{user_question}") was noted.' if user_question else ""
+        reason = (
+            f"Your message contained {log_line_count} log lines. "
+            f"They were compressed to patterns by ctrlb-decompose. "
+            f"{question_ack} "
+            f"Continue the conversation to get the analysis."
+        ).strip()
+
+        print(json.dumps({
+            "decision": "block",
+            "reason": reason,
+            "hookSpecificOutput": {
+                "hookEventName": "UserPromptSubmit",
+                "additionalContext": additional_context,
+            },
+        }))
+    else:
+        # Inject-only fallback: raw lines still in context but Claude is
+        # told to use only the compressed output
+        print(json.dumps({
+            "hookSpecificOutput": {
+                "hookEventName": "UserPromptSubmit",
+                "additionalContext": additional_context,
+            },
+        }))
 
     sys.exit(0)
 
