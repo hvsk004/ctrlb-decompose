@@ -2,7 +2,7 @@
   "name": "ctrlb-hq",
   "owner": {
     "name": "CtrlB",
-    "email": "engineering@ctrlb.ai"
+    "email": "support@ctrlb.ai"
   },
   "metadata": {
     "description": "Official CtrlB plugins for Claude Code"
@@ -12,14 +12,14 @@
       "name": "ctrlb-decompose",
       "source": {
         "source": "git-subdir",
-        "url": "https://github.com/hvsk004/ctrlb-decompose.git",
+        "url": "https://github.com/ctrlb-hq/ctrlb-decompose.git",
         "path": "plugin"
       },
       "description": "Analyze log files with ctrlb-decompose — pattern clustering, anomaly detection, and severity scoring",
       "version": "1.0.0",
-      "author": { "name": "CtrlB", "email": "engineering@ctrlb.ai" },
-      "homepage": "https://github.com/hvsk004/ctrlb-decompose",
-      "repository": "https://github.com/hvsk004/ctrlb-decompose",
+      "author": { "name": "CtrlB", "email": "support@ctrlb.ai" },
+      "homepage": "https://github.com/ctrlb-hq/ctrlb-decompose",
+      "repository": "https://github.com/ctrlb-hq/ctrlb-decompose",
       "license": "MIT",
       "keywords": ["logs", "log-analysis", "observability", "patterns", "anomaly-detection"]
     }
