@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CtrlB Decompose</title>
+    <style>
+        :root, [data-theme="light"] {
+            --bg-base: #f8f9fa;
+            --bg-surface: #ffffff;
+            --bg-elevated: #f4f4f5;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+            --text-muted: #9ca3af;
+            --border-color: #e5e7eb;
+            --border-hover: #d1d5db;
+            --accent-blue: #2563eb;
+            --accent-blue-hover: #1d4ed8;
+            --accent-dark: #111827;
+            --accent-dark-text: #ffffff;
+            --success: #10b981;
+            --danger: #ef4444;
+            --header-blur: rgba(255, 255, 255, 0.85);
+            --radius-card: 24px;
+            --radius-pill: 99px;
+            --font-sans: 'Inter', -apple-system, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --shadow: 0 12px 30px rgba(25, 54, 108, 0.12);
+            color-scheme: light;
+        }
+
+        [data-theme="dark"] {
+            --bg-base: #0f1115;
+            --bg-surface: #1a1d24;
+            --bg-elevated: #27272a;
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --border-color: #374151;
+            --border-hover: #4b5563;
+            --accent-blue: #3b82f6;
+            --accent-blue-hover: #60a5fa;
+            --accent-dark: #f3f4f6;
+            --accent-dark-text: #0f1115;
+            --success: #34d399;
+            --danger: #f87171;
+            --header-blur: rgba(15, 17, 21, 0.85);
+            --shadow: 0 14px 34px rgba(2, 8, 20, 0.56);
+            color-scheme: dark;
+        }
+
+        :root,
+        [data-theme="light"],
+        [data-theme="dark"] {
+            --bg: var(--bg-base);
+            --bg-2: var(--bg-base);
+            --surface: var(--bg-surface);
+            --surface-2: var(--bg-elevated);
+            --border: var(--border-color);
+            --border-strong: var(--border-hover);
+            --text: var(--text-primary);
+            --text-muted: var(--text-secondary);
+            --accent: var(--accent-blue);
+            --accent-hover: var(--accent-blue-hover);
+            --green: var(--success);
+            --intro: var(--text-secondary);
+            --pill-active: var(--accent-dark);
+            --pill-active-text: var(--accent-dark-text);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html, body {
+            height: 100%;
+            min-height: 100%;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background:
+                radial-gradient(130% 80% at 50% -24%, color-mix(in srgb, var(--accent) 15%, transparent), transparent 58%),
+                linear-gradient(180deg, var(--bg), var(--bg-2));
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            letter-spacing: 0.01em;
+        }
+
+        header {
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid var(--border);
+            background: var(--header-blur);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            min-width: 0;
+        }
+
+        .brand-link {
+            color: inherit;
+            text-decoration: none;
+            min-width: 0;
+        }
+
+        .brand-link:hover h1 {
+            color: var(--accent);
+        }
+
+        .brand img {
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+            box-shadow: 0 0 0 1px var(--border), 0 6px 14px color-mix(in srgb, var(--accent) 22%, transparent);
+        }
+
+        .header-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+        }
+
+        .github-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: var(--surface-2);
+            color: var(--text);
+            text-decoration: none;
+            transition: border-color 0.15s, color 0.15s, transform 0.15s;
+        }
+
+        .github-link:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            transform: translateY(-1px);
+        }
+
+        .github-link svg {
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
+        }
+
+        header h1 {
+            font-size: 0.92rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        header h1 span {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .theme-control {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            white-space: nowrap;
+        }
+
+        .theme-pills {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 0.14rem;
+        }
+
+        .theme-pill {
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            width: 26px;
+            height: 26px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .theme-pill svg {
+            width: 14px;
+            height: 14px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.85;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .theme-pill.active {
+            background: var(--accent-dark);
+            color: var(--accent-dark-text);
+            box-shadow: none;
+        }
+
+        .theme-control select {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.3rem 0.45rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+        }
+
+        .theme-control select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .container {
+            padding: 0.9rem;
+            width: 100%;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+
+        .intro {
+            color: var(--intro);
+            text-align: center;
+            font-size: 0.84rem;
+            font-weight: 500;
+            line-height: 1.5;
+            padding: 0.15rem 0.25rem 0.2rem;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        .mode-group {
+            display: inline-flex;
+            align-items: center;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 0.18rem;
+            gap: 0.2rem;
+            box-shadow: var(--shadow);
+            width: fit-content;
+        }
+
+        .format-pill {
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            padding: 0.34rem 0.72rem;
+            border-radius: 999px;
+            font-size: 0.69rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+
+        .format-pill.active {
+            background: var(--accent-dark);
+            color: var(--accent-dark-text);
+            box-shadow: none;
+        }
+
+        .action-row {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.5rem;
+            align-items: center;
+            grid-template-areas:
+                'limit context upload'
+                'analyze analyze analyze';
+        }
+
+        .metric-pill {
+            width: min(100%, 182px);
+            justify-self: start;
+        }
+
+        #topn-pill { grid-area: limit; }
+        #context-pill { grid-area: context; }
+        #upload-pill {
+            grid-area: upload;
+            width: min(100%, 220px);
+            justify-self: start;
+        }
+
+        #analyze-btn {
+            grid-area: analyze;
+            grid-column: 1 / -1;
+        }
+
+        .input-pill,
+        .file-label,
+        .action-button {
+            height: 34px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: var(--surface-2);
+            color: var(--text);
+            font-size: 0.73rem;
+            font-weight: 600;
+            padding: 0 0.72rem;
+        }
+
+        .input-pill {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.35rem;
+        }
+
+        .input-pill span {
+            color: var(--text-muted);
+            font-size: 0.67rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .input-pill input {
+            width: 3.4rem;
+            border: none;
+            background: transparent;
+            color: var(--text);
+            outline: none;
+            font-size: 0.98rem;
+            font-weight: 700;
+            min-width: 0;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            appearance: textfield;
+            -moz-appearance: textfield;
+        }
+
+        .input-pill input::-webkit-inner-spin-button,
+        .input-pill input::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .file-label {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.36rem;
+            cursor: pointer;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            transition: border-color 0.15s, color 0.15s;
+        }
+
+        .file-label svg {
+            width: 13px;
+            height: 13px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.85;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .file-label input { display: none; }
+
+        .file-label:hover {
+            border-color: var(--accent-hover);
+            color: var(--accent-hover);
+        }
+
+        .action-button {
+            border: none;
+            background: linear-gradient(180deg, var(--accent-hover), var(--accent));
+            color: #fff;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            transition: filter 0.15s;
+            box-shadow: 0 8px 16px color-mix(in srgb, var(--accent) 40%, transparent);
+        }
+
+        .action-button:hover {
+            filter: brightness(1.06);
+        }
+
+        .action-button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            filter: none;
+            box-shadow: none;
+        }
+
+        .workspace {
+            flex: 1;
+            min-height: 0;
+            display: grid;
+            grid-template-columns: 1fr;
+            grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 0.65rem;
+        }
+
+        .panel {
+            min-height: 0;
+            background: linear-gradient(180deg, color-mix(in srgb, var(--text) 2%, transparent), transparent), var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            box-shadow: var(--shadow);
+        }
+
+        .panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.6rem;
+            padding: 0.68rem 0.8rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .panel-head h2 {
+            font-size: 0.71rem;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+
+        .stats {
+            font-size: 0.7rem;
+            color: var(--green);
+            font-weight: 600;
+        }
+
+        .panel.scroll-limited {
+            min-height: 0;
+            max-height: none;
+        }
+
+        textarea,
+        #output {
+            width: 100%;
+            flex: 1;
+            min-height: 0;
+            border: none;
+            outline: none;
+            padding: 0.88rem;
+            background: transparent;
+            color: var(--text);
+            font-family: var(--font-mono);
+            font-size: 0.79rem;
+            line-height: 1.56;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow: auto;
+            resize: none;
+        }
+
+        textarea:focus {
+            border: none;
+        }
+
+        textarea::placeholder { color: var(--text-muted); }
+
+        #output {
+            color: var(--text-muted);
+        }
+
+        #output.has-content {
+            color: var(--text);
+        }
+
+        .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .footer {
+            border-top: 1px solid var(--border);
+            padding: 0.5rem;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.74rem;
+        }
+
+        .footer a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 700;
+        }
+
+        .footer a:hover {
+            color: var(--accent-hover);
+        }
+
+        @media (min-width: 840px) {
+            .container {
+                padding: 1.1rem;
+                gap: 0.95rem;
+            }
+
+            .action-row {
+                grid-template-columns: max-content max-content max-content max-content;
+                grid-template-areas: 'limit context upload analyze';
+            }
+
+            #analyze-btn {
+                grid-column: auto;
+                width: min(100%, 220px);
+                min-width: 220px;
+                justify-self: start;
+            }
+
+            .workspace {
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: minmax(0, 1fr);
+            }
+
+            .panel {
+                min-height: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <a class="brand-link" href="https://ctrlb.ai/decompose" target="_blank" rel="noopener noreferrer">
+            <div class="brand">
+                <img src="../icons/icon48.png" alt="CtrlB Decompose logo">
+                <h1>CtrlB Decompose <span>| Log Pattern</span></h1>
+            </div>
+        </a>
+
+        <div class="header-actions">
+            <a class="github-link" href="https://github.com/ctrlb-hq/ctrlb-decompose" target="_blank" rel="noopener noreferrer" aria-label="Open GitHub repository">
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52 0-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.82a7.52 7.52 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+                </svg>
+            </a>
+
+            <div class="theme-control" role="group" aria-label="Theme">
+                <div class="theme-pills">
+                    <button type="button" class="theme-pill" data-theme-option="light" aria-pressed="false" aria-label="Use light theme" title="Light theme">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="12" cy="12" r="7"></circle>
+                            <path d="M12 2v2.5M12 19.5V22M4.93 4.93l1.77 1.77M17.3 17.3l1.77 1.77M2 12h2.5M19.5 12H22M4.93 19.07l1.77-1.77M17.3 6.7l1.77-1.77"></path>
+                        </svg>
+                    </button>
+                    <button type="button" class="theme-pill" data-theme-option="system" aria-pressed="false" aria-label="Use system theme" title="System theme">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <rect x="4" y="5" width="16" height="12" rx="2"></rect>
+                            <path d="M9 20h6"></path>
+                        </svg>
+                    </button>
+                    <button type="button" class="theme-pill" data-theme-option="dark" aria-pressed="false" aria-label="Use dark theme" title="Dark theme">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"></path>
+                        </svg>
+                    </button>
+                </div>
+                <select id="theme-select" class="visually-hidden" aria-hidden="true" tabindex="-1">
+                    <option value="system">System</option>
+                    <option value="dark">Dark</option>
+                    <option value="light">Light</option>
+                </select>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <p class="intro">Extract structure and hidden patterns from unstructured logs instantly with high-performance WASM analytics.</p>
+
+        <div class="toolbar">
+            <div class="mode-group" role="tablist" aria-label="Output format">
+                <button type="button" class="format-pill active" data-format="human" role="tab" aria-selected="true">Human</button>
+                <button type="button" class="format-pill" data-format="llm" role="tab" aria-selected="false">LLM Optimize</button>
+                <button type="button" class="format-pill" data-format="json" role="tab" aria-selected="false">JSON Result</button>
+            </div>
+
+            <label class="visually-hidden" for="format-select">Format</label>
+            <select id="format-select" class="visually-hidden" aria-hidden="true" tabindex="-1">
+                <option value="human">Human</option>
+                <option value="llm">LLM</option>
+                <option value="json">JSON</option>
+            </select>
+
+            <div class="action-row">
+                <label id="topn-pill" class="input-pill metric-pill">
+                    <span>Limit</span>
+                    <input type="number" id="top-n" value="20" min="1" max="1000">
+                </label>
+                <label id="context-pill" class="input-pill metric-pill">
+                    <span>Context</span>
+                    <input type="number" id="context" value="0" min="0" max="10">
+                </label>
+                <label id="upload-pill" class="file-label">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 15V4"></path>
+                        <path d="m7.5 8.5 4.5-4.5 4.5 4.5"></path>
+                        <path d="M4 15.5V18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2.5"></path>
+                    </svg>
+                    UPLOAD FILE
+                    <input type="file" id="file-input" accept=".log,.txt,.csv,*">
+                </label>
+                <button id="analyze-btn" class="action-button" disabled>LOADING WASM...</button>
+            </div>
+        </div>
+
+        <div class="workspace">
+            <section class="panel scroll-limited">
+                <div class="panel-head">
+                    <h2>Source Input</h2>
+                </div>
+                <textarea id="log-input" placeholder="Paste your raw logs here..."></textarea>
+            </section>
+
+            <section class="panel scroll-limited">
+                <div class="panel-head">
+                    <h2>Pattern Results</h2>
+                    <span id="stats" class="stats"></span>
+                </div>
+                <pre id="output">Results will appear here after analysis.</pre>
+            </section>
+        </div>
+    </div>
+
+    <footer class="footer">Crafted with &#10084;&#65039; by <a href="https://ctrlb.ai" target="_blank" rel="noopener noreferrer">CtrlB</a> • Give us a <a href="https://github.com/ctrlb-hq/ctrlb-decompose" target="_blank" rel="noopener noreferrer">star on GitHub</a></footer>
+
+    <script type="module" src="panel.js"></script>
+</body>
+</html>
