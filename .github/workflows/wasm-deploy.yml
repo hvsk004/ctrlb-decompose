@@ -33,6 +33,9 @@ jobs:
       - name: Build WASM
         run: wasm-pack build --target web --out-dir web/pkg -- --no-default-features --features wasm
 
+      - name: Build WASM for extension
+        run: wasm-pack build --target web --out-dir extension/pkg -- --no-default-features --features wasm
+
       - name: Upload pages artifact
         if: github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v3

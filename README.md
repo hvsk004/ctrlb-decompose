@@ -196,6 +196,54 @@ Options:
 
 ---
 
+## Chrome Extension
+
+The Chrome extension source lives in `extension/`.
+
+### Local Dev
+
+Build the extension WASM bundle:
+
+```bash
+cd extension
+make extension-wasm
+```
+
+Then in Chrome:
+
+1. Open `chrome://extensions`
+2. Enable Developer mode
+3. Click **Load unpacked** and select `extension/`
+
+If the panel stays on `Loading WASM...` or shows `WASM load failed`, rebuild `extension/pkg/` with the command above and reload the extension.
+
+### Chrome Web Store Package
+
+Build the WASM bundle and create a submission zip:
+
+```bash
+cd extension
+make chrome-webstore-zip
+```
+
+This writes the upload artifact to:
+
+```text
+extension/dist/ctrlb-decompose-chrome-webstore-v<version>.zip
+```
+
+The generated zip includes only the runtime files required by the extension and excludes internal submission docs under `extension/webstore/`.
+
+Draft Chrome Web Store listing text, privacy copy, and reviewer notes are kept in:
+
+```text
+extension/webstore/
+```
+
+Context-menu analysis now reads selection text directly from the page DOM to better preserve line breaks. On restricted pages where script injection is blocked (for example `chrome://` and Chrome Web Store pages), it falls back to Chrome's `selectionText`, which may flatten whitespace.
+
+---
+
 ## Output Formats
 
 | Format | Flag | Best for |
